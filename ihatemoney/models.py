@@ -333,14 +333,16 @@ class Person(db.Model):
     def __repr__(self):
         return "<Person %s for project %s>" % (self.name, self.project.name)
 
+class BillOwers(db.Model):
+    __tablename__ = 'billowers'
 
-# We need to manually define a join table for m2m relations
-billowers = db.Table(
-    "billowers",
-    db.Column("bill_id", db.Integer, db.ForeignKey("bill.id")),
-    db.Column("person_id", db.Integer, db.ForeignKey("person.id")),
-)
+    bill_id = db.Column("bill_id", db.Integer, db.ForeignKey("bill.id"), primary_key=True)
+    person_id = db.Column("person_id", db.Integer, db.ForeignKey("person.id"), primary_key=True)
+    # store weight to customize the amount owed for an individual person relative to others within a single bill
+    weight = db.Column("weight", db.Integer, default=1)
 
+    bill = db.relationship("Bill", backref="billowers")
+    person = db.relationship(Person, backref="billowers")
 
 class Bill(db.Model):
     class BillQuery(BaseQuery):
@@ -368,7 +370,7 @@ class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     payer_id = db.Column(db.Integer, db.ForeignKey("person.id"))
-    owers = db.relationship(Person, secondary=billowers)
+    owers = db.relationship(Person, secondary="billowers")
 
     amount = db.Column(db.Float)
     date = db.Column(db.Date, default=datetime.now)
@@ -396,7 +398,7 @@ class Bill(db.Model):
         if self.owers:
             weights = (
                 db.session.query(func.sum(Person.weight))
-                .join(billowers, Bill)
+                .join("billowers", Bill)
                 .filter(Bill.id == self.id)
             ).scalar()
             return self.amount / weights
