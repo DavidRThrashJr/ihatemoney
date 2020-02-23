@@ -41,6 +41,7 @@ class Project(db.Model):
             "name": self.name,
             "contact_email": self.contact_email,
             "members": [],
+            "advanced_weighting_enabled": self.advanced_weighting_enabled,
         }
 
         balance = self.balance

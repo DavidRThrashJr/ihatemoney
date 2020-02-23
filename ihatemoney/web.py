@@ -392,6 +392,7 @@ def edit_project():
     else:
         edit_form.name.data = g.project.name
         edit_form.contact_email.data = g.project.contact_email
+        edit_form.advanced_weighting_enabled.data = g.project.advanced_weighting_enabled
 
     return render_template(
         "edit_project.html", edit_form=edit_form, current_view="edit_project"

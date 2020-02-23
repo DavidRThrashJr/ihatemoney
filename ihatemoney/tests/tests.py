@@ -843,6 +843,7 @@ class BudgetTestCase(IhatemoneyTestCase):
             "name": "Super raclette party!",
             "contact_email": "alexis@notmyidea.org",
             "password": "didoudida",
+            "advanced_weighting_enabled": True
         }
 
         resp = self.client.post("/raclette/edit", data=new_data, follow_redirects=True)
@@ -851,6 +852,7 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         self.assertEqual(project.name, new_data["name"])
         self.assertEqual(project.contact_email, new_data["contact_email"])
+        self.assertEqual(project.advanced_weighting_enabled, new_data["advanced_weighting_enabled"])
         self.assertTrue(check_password_hash(project.password, new_data["password"]))
 
         # Editing a project with a wrong email address should fail
@@ -1517,6 +1519,7 @@ class APITestCase(IhatemoneyTestCase):
             "name": "raclette",
             "contact_email": "raclette@notmyidea.org",
             "id": "raclette",
+            "advanced_weighting_enabled": False,
         }
         decoded_resp = json.loads(resp.data.decode("utf-8"))
         self.assertDictEqual(decoded_resp, expected)
@@ -1544,6 +1547,7 @@ class APITestCase(IhatemoneyTestCase):
             "contact_email": "yeah@notmyidea.org",
             "members": [],
             "id": "raclette",
+            "advanced_weighting_enabled": False,
         }
         decoded_resp = json.loads(resp.data.decode("utf-8"))
         self.assertDictEqual(decoded_resp, expected)
@@ -2104,6 +2108,7 @@ class APITestCase(IhatemoneyTestCase):
             "contact_email": "raclette@notmyidea.org",
             "id": "raclette",
             "name": "raclette",
+            "advanced_weighting_enabled": False,
         }
 
         self.assertStatus(200, req)

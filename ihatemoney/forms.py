@@ -1,5 +1,5 @@
 from flask_wtf.form import FlaskForm
-from wtforms.fields.core import SelectField, SelectMultipleField
+from wtforms.fields.core import SelectField, SelectMultipleField, BooleanField
 from wtforms.fields.html5 import DateField, DecimalField, URLField
 from wtforms.fields.simple import PasswordField, SubmitField, StringField
 from wtforms.validators import (
@@ -89,6 +89,7 @@ class EditProjectForm(FlaskForm):
     name = StringField(_("Project name"), validators=[DataRequired()])
     password = StringField(_("Private code"), validators=[DataRequired()])
     contact_email = StringField(_("Email"), validators=[DataRequired(), Email()])
+    advanced_weighting_enabled = BooleanField(_("Advanced Weighting Enabled"), validators=[])
 
     def save(self):
         """Create a new project with the information given by this form.
@@ -100,6 +101,7 @@ class EditProjectForm(FlaskForm):
             id=self.id.data,
             password=generate_password_hash(self.password.data),
             contact_email=self.contact_email.data,
+            advanced_weighting_enabled=self.advanced_weighting_enabled.data,
         )
         return project
 
@@ -108,7 +110,7 @@ class EditProjectForm(FlaskForm):
         project.name = self.name.data
         project.password = generate_password_hash(self.password.data)
         project.contact_email = self.contact_email.data
-
+        project.advanced_weighting_enabled = self.advanced_weighting_enabled.data
         return project
 
 
