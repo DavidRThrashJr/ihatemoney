@@ -321,8 +321,8 @@ class Person(db.Model):
     def has_bills(self):
         """return if the user do have bills or not"""
         bills_as_ower_number = (
-            db.session.query(billowers)
-            .filter(billowers.columns.get("person_id") == self.id)
+            db.session.query(BillOwers)
+            .filter(BillOwers.person_id == self.id)
             .count()
         )
         return bills_as_ower_number != 0 or len(self.bills) != 0
@@ -341,7 +341,7 @@ class BillOwers(db.Model):
     # store weight to customize the amount owed for an individual person relative to others within a single bill
     weight = db.Column("weight", db.Integer, default=1)
 
-    bill = db.relationship("Bill", backref="billowers")
+    bill = db.relationship("Bill", backref=orm.backref('billowers', cascade='all, delete-orphan'))
     person = db.relationship(Person, backref="billowers")
 
 class Bill(db.Model):
