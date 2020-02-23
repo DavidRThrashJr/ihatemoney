@@ -28,6 +28,9 @@ class Project(db.Model):
     password = db.Column(db.String(128))
     contact_email = db.Column(db.String(128))
     members = db.relationship("Person", backref="project")
+    # each project will be able to decide whether they want to use advanced weighting
+    # meaning that they will be able to specify the weight for each member within each bill
+    advanced_weighting_enabled = db.Column(db.Boolean, default=False)
 
     query_class = ProjectQuery
 
