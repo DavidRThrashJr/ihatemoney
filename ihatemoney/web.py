@@ -669,6 +669,10 @@ def edit_member(member_id):
 @main.route("/<project_id>/add", methods=["GET", "POST"])
 def add_bill():
     form = get_billform_for(g.project)
+
+    if g.project.advanced_weighting_enabled:
+        form.advanced = True
+
     if request.method == "POST":
         if form.validate():
             # save last selected payer in session
@@ -712,6 +716,9 @@ def edit_bill(bill_id):
         raise NotFound()
 
     form = get_billform_for(g.project, set_default=False)
+
+    if g.project.advanced_weighting_enabled:
+        form.advanced = True
 
     if request.method == "POST" and form.validate():
         form.save(bill, g.project)

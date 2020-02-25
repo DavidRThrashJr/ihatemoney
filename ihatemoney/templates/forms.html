@@ -1,4 +1,4 @@
-{% macro input(field, multiple=False, class='form-control', inline=False, placeholder='') -%}
+{% macro input(field, multiple=False, class='form-control', inline=False, placeholder='', oninput='') -%}
     <div class="form-group{% if inline %} row{% endif %}">
     {% if field.type != "SubmitField" %}
         {% if inline %}
@@ -11,7 +11,7 @@
         {% if multiple == True %}
             {{ field(multiple=True, class=class, placeholder=placeholder) }}
         {% else %}
-            {{ field(class=class, placeholder=placeholder) | safe }}
+            {{ field(class=class, placeholder=placeholder, oninput=oninput) | safe }}
         {% endif %}
         {% if field.description %}
             <small id="{{field.name}}_description"" class="form-text text-muted">{{ field.description }}</small>
@@ -104,14 +104,15 @@
     {{ input(form.date, class="form-control", inline=True) }}
     {{ input(form.what, inline=True) }}
     {{ input(form.payer, inline=True, class="form-control custom-select") }}
-    {{ input(form.amount, inline=True) }}
+    {% if form.advanced %}{{ input(form.amount, inline=True, oninput="ComputeDue();") }}{% else %}{{ input(form.amount, inline=True) }}{% endif %}
     {{ input(form.external_link, inline=True) }}
-
     <div class="form-group row">
         <label class="col-3" for="payed_for">{{ _("For whom?") }}</label>
-        <div class="controls col-9">
-            <ul id="payed_for" class="inputs-list">
+            <div class="controls col-9">
                 <p><a href="#" id="selectall" onclick="selectCheckboxes(true)">{{ _("Select all") }}</a> | <a href="#" id="selectnone" onclick="selectCheckboxes(false)">{{_("Select none")}}</a></p>
+
+    {% if form.advanced == False %}
+                     <ul id="payed_for" class="inputs-list">
             {% for key, value, checked in form.payed_for.iter_choices() | sort(attribute='1') %}
                 <p class="form-check">
                    <label for="payed_for-{{key}}" class="form-check-label">
@@ -121,7 +122,30 @@
                  </p>
             {% endfor %}
             </ul>
-        </div>
+    {% endif %}
+    {% if form.advanced == True %}
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th scope="col"></th>
+                <th scope="col">{{ _("Participant") }}</th>
+                <th scope="col">{{ _("Weight") }}</th>
+                <th scope="col">{{ _("Due") }}</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for key, value, checked in form.payed_for.iter_choices() | sort(attribute='1') %}
+                <tr>
+                    <td align="right" scope="row"><input name="payed_for" type="checkbox" {% if checked %}checked{% endif %} class="form-check-input" value="{{key}}" id="payed_for-{{key}}" onchange="SetWeight({{ key }})"/></td>
+                    <td>{{ value }}</td>
+                    <td><input type="number" id="payed_for_weight-{{key}}" name="payed_for_weight" value="1" min="0" max="999" onchange="ComputeDue();"></td>
+                    <td><output id="payed_for_due-{{key}}" name="payed_for_due"></output></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+            </div>
     </div>
     </fieldset>
     <div class="actions">

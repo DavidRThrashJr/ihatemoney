@@ -183,6 +183,7 @@ class BillForm(FlaskForm):
     )
     submit = SubmitField(_("Submit"))
     submit2 = SubmitField(_("Submit and add a new one"))
+    advanced = False
 
     def save(self, bill, project):
         bill.payer_id = self.payer.data
