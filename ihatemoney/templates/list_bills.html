@@ -84,7 +84,7 @@
         </a>
     </span>
     <div id="bill-form" class="modal fade show" role="dialog">
-        <div class="modal-dialog" role="document">
+        <div class="modal-dialog {% if g.project.advanced_weighting_enabled %}modal-lg{% endif %}" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h3 class="modal-title">{{ _('Add a bill') }}</h3>

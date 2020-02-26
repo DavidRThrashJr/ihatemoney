@@ -26,7 +26,7 @@ function ComputeDue() {
     due = document.getElementById(due_id);
     payed_for = document.getElementById(payed_for_id);
     if (payed_for.checked)
-      due.value = (parseInt(bill_amt.value) * (parseInt(weights[i].value)/all_weight));
+      due.value = (Math.round(((parseInt(bill_amt.value) * (parseInt(weights[i].value)/all_weight)) + Number.EPSILON) * 100) / 100)
     else
       due.value = 0;
   }

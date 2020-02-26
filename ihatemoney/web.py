@@ -583,6 +583,10 @@ def invite():
 @main.route("/<project_id>/")
 def list_bills():
     bill_form = get_billform_for(g.project)
+    # set the form to set weighted values for each participant
+    # if the project has advanced weighting enabled
+    if g.project.advanced_weighting_enabled:
+        bill_form.advanced = True
     # set the last selected payer as default choice if exists
     if "last_selected_payer" in session:
         bill_form.payer.data = session["last_selected_payer"]
