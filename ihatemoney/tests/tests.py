@@ -2228,6 +2228,69 @@ class ModelsTestCase(IhatemoneyTestCase):
                 pay_each_expected = 10 / 3
                 self.assertEqual(bill.pay_each(), pay_each_expected)
 
+    def test_project_balance(self):
+        # sqlfiddle: http://sqlfiddle.com/#!9/ce6608/1
+        self.post_project("raclette")
+
+        # add members
+        self.client.post("/raclette/members/add", data={"name": "alexis", "weight": 1})
+        self.client.post("/raclette/members/add", data={"name": "fred", "weight": 3})
+        self.client.post("/raclette/members/add", data={"name": "tata", "weight": 2})
+        # Add a member with a balance=0 :
+        self.client.post("/raclette/members/add", data={"name": "toto", "weight": 2})
+
+        # create bills
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "fromage à raclette",
+                "payer": 1,
+                "payed_for": [1, 2, 3],
+                "amount": "10.0",
+            },
+        )
+
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "red wine",
+                "payer": 2,
+                "payed_for": [1],
+                "amount": "20",
+            },
+        )
+
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "delicatessen",
+                "payer": 1,
+                "payed_for": [1, 2],
+                "amount": "10",
+            },
+        )
+
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "delicatessen",
+                "payer": 4,
+                "payed_for": [1, 4],
+                "amount": "100",
+            },
+        )
+
+        project = models.Project.query.get("raclette")
+        balances = project.balance
+        self.assertIsInstance(balances, defaultdict)
+        result = {1: -37.5, 2: 7.5, 3: -3.3333333333333335, 4: 33.333333333333336}
+        self.assertEqual(balances, result)
+        pass
+
 
 if __name__ == "__main__":
     unittest.main()

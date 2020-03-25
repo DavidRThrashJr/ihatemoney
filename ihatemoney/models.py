@@ -5,7 +5,7 @@ from flask_sqlalchemy import SQLAlchemy, BaseQuery
 from flask import g, current_app
 
 from debts import settle
-from sqlalchemy import orm
+from sqlalchemy import orm, case
 from sqlalchemy.sql import func
 from itsdangerous import (
     TimedJSONWebSignatureSerializer,
@@ -58,6 +58,125 @@ class Project(db.Model):
 
     @property
     def balance(self):
+        # RAW SQL
+        # SELECT
+        # person.id as person_id,
+        # SUM(CASE
+        # WHEN
+        # bill.payer_id = person.id
+        # THEN
+        # bill.amount - (bill.amount / (totalperson.weight)) * (person.weight)
+        # ELSE((bill.amount / (totalperson.weight)) * (person.weight) * -1)
+        # END) AS
+        # balance
+        # FROM
+        # bill, person, billowers,
+        # (SELECT bill.id, sum(billowers.weight) as total
+        # FROM
+        # bill, person, billowers
+        # WHERE
+        # bill.id = billowers.bill_id
+        # AND
+        # person.id = billowers.ower_id
+        # AND
+        # person.project_id = 1
+        # GROUP
+        # BY
+        # billowers.bill_id) as billweight,
+        # (SELECT billowers.bill_id, billowers.ower_id, billowers.weight as total
+        # FROM bill, person, billowers
+        # WHERE bill.id = billowers.bill_id AND
+        # person.id = billowers.ower_id AND
+        # person.project_id=1) as billpersonweight,
+        # (SELECT billowers.bill_id, sum(person.weight) as weight
+        # FROM
+        # billowers, person
+        # WHERE
+        # billowers.ower_id = person.id
+        # AND
+        # person.project_id = 1
+        # GROUP
+        # BY
+        # billowers.bill_id) as totalperson
+        # WHERE
+        # bill.id = billowers.bill_id
+        # AND
+        # bill.id = billweight.id
+        # AND
+        # bill.id = billpersonweight.bill_id
+        # AND
+        # person.id = billpersonweight.ower_id
+        # AND
+        # bill.id = totalperson.bill_id
+        # AND
+        # person.id = billowers.ower_id
+        # group
+        # by
+        # person.id
+
+        bill_weight = db.session.query(Bill.id.label("bill_id"),
+                                       func.sum(BillOwers.weight).label("total"))\
+            .join(BillOwers, Person)\
+            .filter(db.and_(Bill.id == BillOwers.bill_id,
+                            Person.id == BillOwers.ower_id,
+                            Project.id == self.id))\
+            .group_by(BillOwers.bill_id)\
+            .subquery()
+
+        bill_person_weight = db.session.query(BillOwers.bill_id,
+                                              BillOwers.ower_id,
+                                              BillOwers.weight.label("total"))\
+            .join(Bill, Person)\
+            .filter(db.and_(Bill.id == BillOwers.bill_id,
+                            Person.id == BillOwers.ower_id,
+                            Person.project_id == self.id))\
+            .subquery()
+
+        total_person = db.session.query(BillOwers.bill_id,
+                                        func.sum(Person.weight).label("weight"))\
+            .join(BillOwers)\
+            .filter(db.and_(BillOwers.ower_id == Person.id,
+                            Person.project_id == self.id))\
+            .group_by(BillOwers.bill_id)\
+            .subquery()
+
+        # will need to have a case statement for self.advanced_weighting_enabled
+        # this will toggle between bill_weight.c.total & total_person.c.weight
+        # right now we're only using total_person.c.weight
+
+        balances = db.session.query(Person.id.label("person_id"),
+                                    case(
+                                        [
+                                            (
+                                                Bill.payer_id == Person.id,
+                                                    Bill.amount -
+                                                    (Bill.amount / (total_person.c.weight))
+                                                    *
+                                                    (Person.weight)
+                                            ),
+                                            (
+                                                Bill.payer_id != Person.id,
+                                                (
+                                                    Bill.amount / (total_person.c.weight) * (
+                                                                Person.weight)
+                                                )
+
+                                            )
+                                        ]
+                                    ).label("balance")
+                                    )\
+            .join(Bill, BillOwers,
+                  bill_weight, bill_person_weight, total_person)\
+            .filter(db.and_(Bill.id == BillOwers.bill_id,
+                            Bill.id == bill_weight.c.bill_id,
+                            Bill.id == bill_person_weight.c.bill_id,
+                            Person.id == bill_person_weight.c.ower_id,
+                            Bill.id == total_person.c.bill_id,
+                            Person.id == BillOwers.ower_id))\
+            .group_by(Person.id)
+        # just testing to match the out put to the unit test: test_project_balance
+        # wrong so-far, because the database is not normalized
+        print(balances.all())
 
         balances, should_pay, should_receive = (defaultdict(int) for time in (1, 2, 3))
 
@@ -76,7 +195,6 @@ class Project(db.Model):
         for person in self.members:
             balance = should_receive[person] - should_pay[person]
             balances[person.id] = balance
-
         return balances
 
     @property
@@ -326,7 +444,7 @@ class Person(db.Model):
         """return if the user do have bills or not"""
         bills_as_ower_number = (
             db.session.query(BillOwers)
-            .filter(BillOwers.person_id == self.id)
+            .filter(BillOwers.ower_id == self.id)
             .count()
         )
         return bills_as_ower_number != 0 or len(self.bills) != 0
@@ -341,12 +459,12 @@ class BillOwers(db.Model):
     __tablename__ = 'billowers'
 
     bill_id = db.Column("bill_id", db.Integer, db.ForeignKey("bill.id"), primary_key=True)
-    person_id = db.Column("person_id", db.Integer, db.ForeignKey("person.id"), primary_key=True)
+    ower_id = db.Column("ower_id", db.Integer, db.ForeignKey("person.id"), primary_key=True)
     # store weight to customize the amount owed for an individual person relative to others within a single bill
     weight = db.Column("weight", db.Integer, default=1)
 
     bill = db.relationship("Bill", backref=orm.backref('billowers', cascade='all, delete-orphan'))
-    person = db.relationship(Person, backref="billowers")
+    ower = db.relationship(Person, backref="billowers")
 
 class Bill(db.Model):
     class BillQuery(BaseQuery):
