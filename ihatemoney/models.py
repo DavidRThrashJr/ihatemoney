@@ -58,126 +58,6 @@ class Project(db.Model):
 
     @property
     def balance(self):
-        # RAW SQL
-        # SELECT
-        # person.id as person_id,
-        # SUM(CASE
-        # WHEN
-        # bill.payer_id = person.id
-        # THEN
-        # bill.amount - (bill.amount / (totalperson.weight)) * (person.weight)
-        # ELSE((bill.amount / (totalperson.weight)) * (person.weight) * -1)
-        # END) AS
-        # balance
-        # FROM
-        # bill, person, billowers,
-        # (SELECT bill.id, sum(billowers.weight) as total
-        # FROM
-        # bill, person, billowers
-        # WHERE
-        # bill.id = billowers.bill_id
-        # AND
-        # person.id = billowers.ower_id
-        # AND
-        # person.project_id = 1
-        # GROUP
-        # BY
-        # billowers.bill_id) as billweight,
-        # (SELECT billowers.bill_id, billowers.ower_id, billowers.weight as total
-        # FROM bill, person, billowers
-        # WHERE bill.id = billowers.bill_id AND
-        # person.id = billowers.ower_id AND
-        # person.project_id=1) as billpersonweight,
-        # (SELECT billowers.bill_id, sum(person.weight) as weight
-        # FROM
-        # billowers, person
-        # WHERE
-        # billowers.ower_id = person.id
-        # AND
-        # person.project_id = 1
-        # GROUP
-        # BY
-        # billowers.bill_id) as totalperson
-        # WHERE
-        # bill.id = billowers.bill_id
-        # AND
-        # bill.id = billweight.id
-        # AND
-        # bill.id = billpersonweight.bill_id
-        # AND
-        # person.id = billpersonweight.ower_id
-        # AND
-        # bill.id = totalperson.bill_id
-        # AND
-        # person.id = billowers.ower_id
-        # group
-        # by
-        # person.id
-
-        bill_weight = db.session.query(Bill.id.label("bill_id"),
-                                       func.sum(BillOwers.weight).label("total"))\
-            .join(BillOwers, Person)\
-            .filter(db.and_(Bill.id == BillOwers.bill_id,
-                            Person.id == BillOwers.ower_id,
-                            Project.id == self.id))\
-            .group_by(BillOwers.bill_id)\
-            .subquery()
-
-        bill_person_weight = db.session.query(BillOwers.bill_id,
-                                              BillOwers.ower_id,
-                                              BillOwers.weight.label("total"))\
-            .join(Bill, Person)\
-            .filter(db.and_(Bill.id == BillOwers.bill_id,
-                            Person.id == BillOwers.ower_id,
-                            Person.project_id == self.id))\
-            .subquery()
-
-        total_person = db.session.query(BillOwers.bill_id,
-                                        func.sum(Person.weight).label("weight"))\
-            .join(BillOwers)\
-            .filter(db.and_(BillOwers.ower_id == Person.id,
-                            Person.project_id == self.id))\
-            .group_by(BillOwers.bill_id)\
-            .subquery()
-
-        # will need to have a case statement for self.advanced_weighting_enabled
-        # this will toggle between bill_weight.c.total & total_person.c.weight
-        # right now we're only using total_person.c.weight
-
-        balances = db.session.query(Person.id.label("person_id"),
-                                    case(
-                                        [
-                                            (
-                                                Bill.payer_id == Person.id,
-                                                    Bill.amount -
-                                                    (Bill.amount / (total_person.c.weight))
-                                                    *
-                                                    (Person.weight)
-                                            ),
-                                            (
-                                                Bill.payer_id != Person.id,
-                                                (
-                                                    Bill.amount / (total_person.c.weight) * (
-                                                                Person.weight)
-                                                )
-
-                                            )
-                                        ]
-                                    ).label("balance")
-                                    )\
-            .join(Bill, BillOwers,
-                  bill_weight, bill_person_weight, total_person)\
-            .filter(db.and_(Bill.id == BillOwers.bill_id,
-                            Bill.id == bill_weight.c.bill_id,
-                            Bill.id == bill_person_weight.c.bill_id,
-                            Person.id == bill_person_weight.c.ower_id,
-                            Bill.id == total_person.c.bill_id,
-                            Person.id == BillOwers.ower_id))\
-            .group_by(Person.id)
-        # just testing to match the out put to the unit test: test_project_balance
-        # wrong so-far, because the database is not normalized
-        print(balances.all())
-
         balances, should_pay, should_receive = (defaultdict(int) for time in (1, 2, 3))
 
         # for each person
@@ -188,7 +68,11 @@ class Project(db.Model):
             )
             for bill in bills.all():
                 if person != bill.payer:
-                    share = bill.pay_each() * person.weight
+                    if self.advanced_weighting_enabled:
+                        billower = BillOwers.query.get(bill.id, person.id)
+                        share = bill.pay_each(self.advanced_weighting_enabled) * billower.weight
+                    else:
+                        share = bill.pay_each(self.advanced_weighting_enabled) * person.weight
                     should_pay[person] += share
                     should_receive[bill.payer] += share
 
@@ -457,6 +341,25 @@ class Person(db.Model):
 
 class BillOwers(db.Model):
     __tablename__ = 'billowers'
+    class BillOwersQuery(BaseQuery):
+        def get(self, bill_id, ower_id):
+            try:
+                return (
+                    db.session.query(BillOwers)
+                    .filter(BillOwers.ower_id == ower_id)
+                    .filter(BillOwers.bill_id == bill_id)
+                    .one()
+                )
+            except orm.exc.NoResultFound:
+                return None
+
+        def delete(self, bill_id, ower_id):
+            billower = self.get(bill_id, ower_id)
+            if billower:
+                db.session.delete(billower)
+            return billower
+
+    query_class = BillOwersQuery
 
     bill_id = db.Column("bill_id", db.Integer, db.ForeignKey("bill.id"), primary_key=True)
     ower_id = db.Column("ower_id", db.Integer, db.ForeignKey("person.id"), primary_key=True)
@@ -515,14 +418,20 @@ class Bill(db.Model):
             "external_link": self.external_link,
         }
 
-    def pay_each(self):
+    def pay_each(self, advanced_weighting=False):
         """Compute what each share has to pay"""
         if self.owers:
-            weights = (
-                db.session.query(func.sum(Person.weight))
-                .join("billowers", Bill)
-                .filter(Bill.id == self.id)
-            ).scalar()
+            if advanced_weighting:
+                weights = (
+                    db.session.query(func.sum(BillOwers.weight))
+                        .filter(BillOwers.bill_id == self.id)
+                ).scalar()
+            else:
+                weights = (
+                    db.session.query(func.sum(Person.weight))
+                    .join(BillOwers, Bill)
+                    .filter(Bill.id == self.id)
+                ).scalar()
             return self.amount / weights
         else:
             return 0
