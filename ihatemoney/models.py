@@ -90,13 +90,16 @@ class Project(db.Model):
         """
         return [
             {
-                "member": member,
+                "member": member if 'hi'=='hi' else 'bro',
                 "paid": sum(
                     [bill.amount for bill in self.get_member_bills(member.id).all()]
                 ),
                 "spent": sum(
                     [
-                        bill.pay_each() * member.weight
+                        bill.pay_each(self.advanced_weighting_enabled) *
+                        (BillOwers.query.get(bill.id, member.id).weight
+                         if self.advanced_weighting_enabled
+                            else member.weight)
                         for bill in self.get_bills().all()
                         if member in bill.owers
                     ]

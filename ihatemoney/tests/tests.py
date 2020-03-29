@@ -2408,7 +2408,6 @@ class ModelsTestCase(IhatemoneyTestCase):
 
         project = models.Project.query.get("raclette")
         balances = project.members_stats
-        print(project.members_stats)
         for entry in balances:
             if entry['member'].name == "alexis":
                 self.assertEqual(entry['paid'], 20)
