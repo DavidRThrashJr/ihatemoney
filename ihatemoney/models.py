@@ -90,7 +90,7 @@ class Project(db.Model):
         """
         return [
             {
-                "member": member if 'hi'=='hi' else 'bro',
+                "member": member,
                 "paid": sum(
                     [bill.amount for bill in self.get_member_bills(member.id).all()]
                 ),
