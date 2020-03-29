@@ -173,7 +173,9 @@
     {% include "display_errors.html" %}
     {{ form.hidden_tag() }}
     {{ input(form.name) }}
+    {% if g.project.advanced_weighting_enabled == False %}
     {{ input(form.weight) }}
+    {% endif %}
     </fieldset>
     <div class="actions">
         {{ form.submit(class="btn btn-primary") }}
