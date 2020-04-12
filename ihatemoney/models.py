@@ -331,7 +331,7 @@ class Person(db.Model):
         """return if the user do have bills or not"""
         bills_as_ower_number = (
             db.session.query(BillOwers)
-            .filter(BillOwers.ower_id == self.id)
+            .filter(BillOwers.person_id == self.id)
             .count()
         )
         return bills_as_ower_number != 0 or len(self.bills) != 0
@@ -349,7 +349,7 @@ class BillOwers(db.Model):
             try:
                 return (
                     db.session.query(BillOwers)
-                    .filter(BillOwers.ower_id == ower_id)
+                    .filter(BillOwers.person_id == ower_id)
                     .filter(BillOwers.bill_id == bill_id)
                     .one()
                 )
@@ -365,7 +365,7 @@ class BillOwers(db.Model):
     query_class = BillOwersQuery
 
     bill_id = db.Column("bill_id", db.Integer, db.ForeignKey("bill.id"), primary_key=True)
-    ower_id = db.Column("ower_id", db.Integer, db.ForeignKey("person.id"), primary_key=True)
+    person_id = db.Column("person_id", db.Integer, db.ForeignKey("person.id"), primary_key=True)
     # store weight to customize the amount owed for an individual person relative to others within a single bill
     weight = db.Column("weight", db.Integer, default=1)
 
