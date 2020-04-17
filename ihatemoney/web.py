@@ -43,7 +43,7 @@ from ihatemoney.forms import (
     PasswordReminder,
     ResetPasswordForm,
     ProjectForm,
-    get_billform_for,
+    get_billform_form,
     UploadForm,
 )
 from ihatemoney.models import db, Project, Person, Bill
@@ -472,7 +472,7 @@ def import_project(file, project):
             owers_id.append(id_dict[ower])
 
         bill = Bill()
-        form = get_billform_for(project)
+        form = get_billform_form(project)
         form.what = b["what"]
         form.amount = b["amount"]
         form.date = parse(b["date"])
@@ -582,7 +582,7 @@ def invite():
 
 @main.route("/<project_id>/")
 def list_bills():
-    bill_form = get_billform_for(g.project)
+    bill_form = get_billform_form(g.project)
     # set the form to set weighted values for each participant
     # if the project has advanced weighting enabled
     if g.project.advanced_weighting_enabled:
@@ -672,19 +672,34 @@ def edit_member(member_id):
 
 @main.route("/<project_id>/add", methods=["GET", "POST"])
 def add_bill():
-    form = get_billform_for(g.project)
-
+    form = get_billform_form(g.project)
     if g.project.advanced_weighting_enabled:
         form.advanced = True
 
     if request.method == "POST":
+
         if form.validate():
+            # print('almost done')
+            # print(form.billowers)
+            # print(form.billowers[0].included.data)
+            # print(form.billowers[0].person_id.data)
+            # print(form.billowers[0].person_name.data)
+            # print(form.billowers[0].weight.data)
+            # print(form.billowers[1].included.data)
+            # print(form.billowers[1].person_id.data)
+            # print(form.billowers[1].person_name.data)
+            # print(form.billowers[1].weight.data)
+            # for billower in form.billowers:
+            #     print('post of billwoers')
+            #     print(type(billower))
+            #     print(billower)
             # save last selected payer in session
             session["last_selected_payer"] = form.payer.data
             session.update()
 
             bill = Bill()
-            db.session.add(form.save(bill, g.project))
+            db.session.add(form.save(bill))
+#            for
             db.session.commit()
 
             flash(_("The bill has been added"))
@@ -719,20 +734,17 @@ def edit_bill(bill_id):
     if not bill:
         raise NotFound()
 
-    form = get_billform_for(g.project, set_default=False)
+    form = get_billform_form(g.project, bill_id=bill_id, set_default=False)
 
     if g.project.advanced_weighting_enabled:
         form.advanced = True
 
     if request.method == "POST" and form.validate():
-        form.save(bill, g.project)
+        form.save(bill, edit=True)
         db.session.commit()
 
         flash(_("The bill has been modified"))
         return redirect(url_for(".list_bills"))
-
-    if not form.errors:
-        form.fill(bill)
 
     return render_template("add_bill.html", form=form, edit=True)
 

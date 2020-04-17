@@ -369,7 +369,7 @@ class BillOwers(db.Model):
     # store weight to customize the amount owed for an individual person relative to others within a single bill
     weight = db.Column("weight", db.Integer, default=1)
 
-    bill = db.relationship("Bill", backref=orm.backref('billowers', cascade='all, delete-orphan'))
+    bill = db.relationship("Bill", backref=orm.backref('bill', cascade='save-update, merge, delete, delete-orphan'))
     ower = db.relationship(Person, backref="billowers")
 
 class Bill(db.Model):
@@ -398,6 +398,7 @@ class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     payer_id = db.Column(db.Integer, db.ForeignKey("person.id"))
+    billowers = db.relationship(BillOwers, primaryjoin=(BillOwers.bill_id == id))
     owers = db.relationship(Person, secondary="billowers")
 
     amount = db.Column(db.Float)

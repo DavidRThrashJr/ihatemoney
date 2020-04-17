@@ -4,7 +4,7 @@ from flask_restful import Resource, abort
 from wtforms.fields.core import BooleanField
 
 from ihatemoney.models import db, Project, Person, Bill
-from ihatemoney.forms import ProjectForm, EditProjectForm, MemberForm, get_billform_for
+from ihatemoney.forms import ProjectForm, EditProjectForm, MemberForm, get_billform_form
 from werkzeug.security import check_password_hash
 from functools import wraps
 
@@ -144,7 +144,7 @@ class BillsHandler(Resource):
         return project.get_bills().all()
 
     def post(self, project):
-        form = get_billform_for(project, True, meta={"csrf": False})
+        form = get_billform_form(project, True, meta={"csrf": False})
         if form.validate():
             bill = Bill()
             form.save(bill, project)
@@ -164,7 +164,7 @@ class BillHandler(Resource):
         return bill, 200
 
     def put(self, project, bill_id):
-        form = get_billform_for(project, True, meta={"csrf": False})
+        form = get_billform_form(project, True, meta={"csrf": False})
         if form.validate():
             bill = Bill.query.get(project, bill_id)
             form.save(bill, project)
