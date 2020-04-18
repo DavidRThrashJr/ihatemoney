@@ -734,13 +734,14 @@ def edit_bill(bill_id):
     if not bill:
         raise NotFound()
 
+    # TODO pass bill object instead of bill id to get_billform
     form = get_billform_form(g.project, bill_id=bill_id, set_default=False)
 
     if g.project.advanced_weighting_enabled:
         form.advanced = True
 
     if request.method == "POST" and form.validate():
-        form.save(bill, edit=True)
+        form.save(bill)
         db.session.commit()
 
         flash(_("The bill has been modified"))

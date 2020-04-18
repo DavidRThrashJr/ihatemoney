@@ -25,7 +25,7 @@ import email_validator
 from ihatemoney.models import Project, Person, Bill, BillOwers
 from ihatemoney.utils import slugify, eval_arithmetic_expression
 
-weight_validators = [NumberRange(min=0.1, message=_("Weights should be positive"))]
+weight_validators = [NumberRange(min=0, message=_("Weights should be positive"))]
 
 def strip_filter(string):
     try:
@@ -69,7 +69,6 @@ def get_billform_form(project, set_default=True, bill_id=None, **kwargs):
     #     form.billowers = billowersforms
 
     # we're using the billowers object here to fill in the attributes used by the form
-
     bill = Bill()
     if set_default and request.method == "GET":
         billowers = []
@@ -239,7 +238,7 @@ class ResetPasswordForm(FlaskForm):
     submit = SubmitField(_("Reset password"))
 
 class BillOwersForm(FlaskForm):
-    included = BooleanField("Included in the bill", validators=[DataRequired()])
+    included = BooleanField("Included in the bill", validators=[])
     person_id = HiddenField("Person Id", validators=[DataRequired()])
     person_name = StringField("Ower")
     weight = CommaDecimalField(_("Weight"), default=1, validators=weight_validators)
@@ -261,7 +260,7 @@ class BillForm(FlaskForm):
     submit2 = SubmitField(_("Submit and add a new one"))
     advanced = False
 
-    def save(self, bill, edit=False):
+    def save(self, bill):
         bill.payer_id = self.payer.data
         bill.amount = self.amount.data
         bill.what = self.what.data
@@ -269,37 +268,24 @@ class BillForm(FlaskForm):
         bill.date = self.date.data
         new_billowers = []
         for form_billower in self.billowers:
-            # if the bill that was past has an empty list for billowers
-            # then that bill needs new BillOwers instantiated
-            if bill.billowers == []:
+            billower_already_exists = False
+            if bill.owers != []:
+                for old_billower in bill.billowers:
+                    if old_billower.person_id == int(form_billower.person_id.data):
+                        billower_already_exists = True
+                        if form_billower.included.data is True:
+                            # rather than checking if the value is update, we're just assigning it
+                            old_billower.person_id = form_billower.person_id.data
+                            old_billower.bill_id = bill.id
+                            old_billower.weight = form_billower.weight.data.__int__()
+                            new_billowers.append(old_billower)
+            if billower_already_exists is False:
                 if form_billower.included.data is True:
                     new_billower = BillOwers()
                     new_billower.person_id = form_billower.person_id.data
                     new_billower.bill_id = bill.id
                     new_billower.weight = form_billower.weight.data.__int__()
                     new_billowers.append(new_billower)
-            else:
-                # if the billowers list has contents then
-                # we need to check if the existing billowers need to be updated
-                for old_billower in bill.billowers:
-                    if old_billower.person_id == form_billower.person_id:
-                        if form_billower.included.data is True:
-                            # rather than checking if the value is update, we're just assigning it
-                            # Dependency rule tried to blank-out primary key column 'billowers.bill_id' on instance '<BillOwers at 0x7f554c2bf2d0>'
-                            old_billower.person_id = form_billower.person_id.data
-                            old_billower.bill_id = bill.id
-                            old_billower.weight = form_billower.weight.data.__int__()
-                            new_billowers.append(old_billower)
-                        else:
-                            print('delete')
-                            # do we need to delete the old billower or will it do this automatically?
-        print('here we go')
-        print(new_billowers)
-        for test in new_billowers:
-            print(test)
-            print(test.bill_id)
-            print(test.person_id)
-            print(test.weight)
         bill.billowers = new_billowers
         return bill
 
