@@ -398,7 +398,7 @@ class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     payer_id = db.Column(db.Integer, db.ForeignKey("person.id"))
-    billowers = db.relationship(BillOwers, primaryjoin=(BillOwers.bill_id == id), cascade='save-update, merge, delete, delete-orphan')
+    billowers = db.relationship(BillOwers, primaryjoin=(BillOwers.bill_id == id), cascade='save-update, merge, delete, delete-orphan', )
     owers = db.relationship(Person, secondary="billowers")
 
     amount = db.Column(db.Float)

@@ -25,26 +25,11 @@ import email_validator
 from ihatemoney.models import Project, Person, Bill, BillOwers
 from ihatemoney.utils import slugify, eval_arithmetic_expression
 
-weight_validators = [NumberRange(min=0, message=_("Weights should be positive"))]
-
 def strip_filter(string):
     try:
         return string.strip()
     except Exception:
         return string
-
-class BillObj(object):
-#    date = ""
-    what = ""
-    payer = 0
-    amount = 0
-    external_link = ""
-
-class BillOwersObj(object):
-    included = True
-    person_id = 0
-    person_name = ""
-    weight = 1
 
 def get_billform_form(project, set_default=True, bill_id=None, **kwargs):
     """Return an instance of BillForm configured for a particular project.
@@ -53,20 +38,6 @@ def get_billform_form(project, set_default=True, bill_id=None, **kwargs):
                   display the default form, it will call set_default on it.
 
     """
-    # form = BillForm(**kwargs)
-    # active_members = [(m.id, m.name) for m in project.active_members]
-    # form.payer.choices = active_members
-    # billowersforms = []
-    # if set_default and request.method == "GET":
-    #     print('hi')
-    #     for members in project.active_members:
-    #         billowersform = BillOwersForm(meta={"csrf": False})
-    #         billowersform.included.data = True
-    #         billowersform.person_id.data = members.id
-    #         billowersform.person_name.data = members.name
-    #         billowersform.weight.data = 1
-    #         billowersforms.append(billowersform)
-    #     form.billowers = billowersforms
 
     # we're using the billowers object here to fill in the attributes used by the form
     bill = Bill()
@@ -238,6 +209,7 @@ class ResetPasswordForm(FlaskForm):
     submit = SubmitField(_("Reset password"))
 
 class BillOwersForm(FlaskForm):
+    weight_validators = [NumberRange(min=0, message="Weights should be positive")]
     included = BooleanField("Included in the bill", validators=[])
     person_id = HiddenField("Person Id", validators=[DataRequired()])
     person_name = StringField("Ower")
@@ -259,6 +231,17 @@ class BillForm(FlaskForm):
     submit = SubmitField(_("Submit"))
     submit2 = SubmitField(_("Submit and add a new one"))
     advanced = False
+
+    def validate_billowers(form, billowers):
+        participants = 0
+        # must have at least one billower
+        for form_billower in billowers:
+            if form_billower.included.data is True:
+                participants += 1
+        if participants >= 1:
+            pass
+        else:
+            raise ValidationError(_("At least one participant should be included in the bill"))
 
     def save(self, bill):
         bill.payer_id = self.payer.data
@@ -305,6 +288,7 @@ class BillForm(FlaskForm):
 
 
 class MemberForm(FlaskForm):
+    weight_validators = [NumberRange(min=1, message="Weights should be positive")]
     name = StringField(_("Name"), validators=[DataRequired()], filters=[strip_filter])
 
     weight = CommaDecimalField(_("Weight"), default=1, validators=weight_validators)

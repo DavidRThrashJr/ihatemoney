@@ -679,20 +679,6 @@ def add_bill():
     if request.method == "POST":
 
         if form.validate():
-            # print('almost done')
-            # print(form.billowers)
-            # print(form.billowers[0].included.data)
-            # print(form.billowers[0].person_id.data)
-            # print(form.billowers[0].person_name.data)
-            # print(form.billowers[0].weight.data)
-            # print(form.billowers[1].included.data)
-            # print(form.billowers[1].person_id.data)
-            # print(form.billowers[1].person_name.data)
-            # print(form.billowers[1].weight.data)
-            # for billower in form.billowers:
-            #     print('post of billwoers')
-            #     print(type(billower))
-            #     print(billower)
             # save last selected payer in session
             session["last_selected_payer"] = form.payer.data
             session.update()
