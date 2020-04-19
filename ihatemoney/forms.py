@@ -52,6 +52,7 @@ def get_billform_form(project, set_default=True, bill_id=None, **kwargs):
             billower.weight = 1
             billowers.append(billower)
         bill.billowers = billowers
+        bill.date = datetime.now()
 
     # if we're editing the bill a bill_id is passed
     # we create a new billowers list
@@ -87,7 +88,6 @@ def get_billform_form(project, set_default=True, bill_id=None, **kwargs):
         bill = bill_to_edit
 
     form = BillForm(obj=bill, meta={"csrf": False})
-    # form.date.data = datetime.now()
     active_members = [(m.id, m.name) for m in project.active_members]
     form.payer.choices = active_members
     return form
