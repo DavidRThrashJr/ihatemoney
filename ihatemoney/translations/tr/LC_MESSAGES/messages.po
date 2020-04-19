@@ -525,6 +525,9 @@ msgstr ""
 msgid "Advanced"
 msgstr ""
 
+msgid "Simple"
+msgstr ""
+
 #~ msgid "What do you want to download ?"
 #~ msgstr ""
 

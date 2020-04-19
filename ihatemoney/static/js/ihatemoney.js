@@ -50,12 +50,14 @@ function SetWeight(personid) {
 
 // weight is set; used when unchecking participant in advanced mode in the add_bill form
 function ToggleAdvanced() {
-  var toggleAdvanced = document.getElementById("toggle_advanced");
+  var toggleSimple = document.getElementById("toggle_advanced_smpl");
+  var toggleAdvanced = document.getElementById("toggle_advanced_adv");
   var weightCells = document.querySelectorAll('[id=weight_cell]');
   var weightCol = document.getElementById("weight_col");
   var weights = document.querySelectorAll('[name$=weight]');
 
-  toggleAdvanced.text = toggleAdvanced.text === 'Advanced' ? 'Simple' : 'Advanced'
+  toggleAdvanced.style.display = toggleAdvanced.style.display === 'block' ? 'none' : 'block';
+  toggleSimple.style.display = toggleAdvanced.style.display === 'block' ? 'none' : 'block';
 
   weightCol.style.visibility = weightCol.style.visibility === 'hidden' ? 'visible' : 'hidden';
 
