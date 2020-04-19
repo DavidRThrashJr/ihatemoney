@@ -97,63 +97,53 @@
 
 {% macro add_bill(form, edit=False, title=True) %}
     <fieldset>
-        {% if title %}<legend>{% if edit %}{{ _("Edit this bill") }} {% else %}{{ _("Add a bill") }} {% endif %}</legend>{% endif %}
-    {% include "display_errors.html" %}
-    {{ form.hidden_tag() }}
-{#    CSRF hack due to errors: "Billowers: {'csrf_token': ['The CSRF token is missing.']}"#}
-    {% for billowers in form.billowers %}
-        {{ billowers.hidden_tag() }}
-    {% endfor %}
-    {{ input(form.date, class="form-control", inline=True) }}
-    {{ input(form.what, inline=True) }}
-    {{ input(form.payer, inline=True, class="form-control custom-select") }}
-    {% if form.advanced %}{{ input(form.amount, inline=True, oninput="ComputeDue();") }}{% else %}{{ input(form.amount, inline=True) }}{% endif %}
-    {{ input(form.external_link, inline=True) }}
-    <div class="form-group row">
-        <label class="col-3" for="payed_for">{{ _("For whom?") }}</label>
+        {% if title %}
+            <legend>
+                {% if edit %}{{ _("Edit this bill") }} {% else %}{{ _("Add a bill") }} {% endif %}</legend>{% endif %}
+        {% include "display_errors.html" %}
+        {{ form.hidden_tag() }}
+        {#    CSRF hack due to errors: "Billowers: {'csrf_token': ['The CSRF token is missing.']}"#}
+        {% for billowers in form.billowers %}
+            {{ billowers.hidden_tag() }}
+        {% endfor %}
+        {{ input(form.date, class="form-control", inline=True) }}
+        {{ input(form.what, inline=True) }}
+        {{ input(form.payer, inline=True, class="form-control custom-select") }}
+        {% if form.advanced %}{{ input(form.amount, inline=True, oninput="ComputeDue();") }}{% else %}
+            {{ input(form.amount, inline=True) }}{% endif %}
+        {{ input(form.external_link, inline=True) }}
+        <div class="form-group row">
+            <label class="col-3" for="payed_for">{{ _("For whom?") }}</label>
             <div class="controls col-9">
-                <p><a href="#" id="selectall" onclick="selectCheckboxes(true)">{{ _("Select all") }}</a> | <a href="#" id="selectnone" onclick="selectCheckboxes(false)">{{_("Select none")}}</a></p>
-
-    {% if form.advanced == False %}
-                     <ul id="payed_for" class="inputs-list">
-            {% for billowers in form.billowers %}
-                <p class="form-check">
-                   <label for="payed_for-{{key}}" class="form-check-label">
-                      <input name="payed_for" type="checkbox" {% if checked %}checked{% endif %} class="form-check-input" value="{{key}}" id="payed_for-{{key}}"/>
-                      <span>{{value}}</span>
-                    </label>
-                 </p>
-                {{ billowers.included }}
-                {{ billowers.person_id }}
-                {{ billowers.person_name }}
-            {% endfor %}
-            </ul>
-    {% endif %}
-    {% if form.advanced == True %}
-        <table class="table table-hover">
-            <thead>
-            <tr>
-                <th scope="col"></th>
-                <th scope="col">{{ _("Participant") }}</th>
-                <th scope="col">{{ _("Weight") }}</th>
-                <th scope="col">{{ _("Due") }}</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for billowers in form.billowers%}
-                <tr>
-                <td>{{ billowers.included(**{"onchange":"SetWeight("+billowers.person_id.data|string+")","personid":billowers.person_id.data|string}) }}</td>
-                    {{ billowers.person_id() }}
-                <td>{{ billowers.person_name(readonly=true) }}</td>
-                <td>{{ billowers.weight(**{"onchange":"ComputeDue()","personid":billowers.person_id.data|string}) }}</td>
-                <td><output id="due" name="due" personid="{{ billowers.person_id.data|string }}"></output></td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    {% endif %}
+                <p><a href="#" id="selectall" onclick="selectCheckboxes(true)">{{ _("Select all") }}</a> | <a href="#"
+                                                                                                              id="selectnone"
+                                                                                                              onclick="selectCheckboxes(false)">{{ _("Select none") }}</a>
+                </p>
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th scope="col"></th>
+                        <th scope="col">{{ _("Participant") }}</th>
+                        <th scope="col" style="display: {{ "" if form.advanced else "none" }};">{{ _("Weight") }}</th>
+                        <th scope="col">{{ _("Due") }}</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for billowers in form.billowers %}
+                        <tr>
+                            <td>{{ billowers.included(**{"onchange":"SetWeight("+billowers.person_id.data|string+")","personid":billowers.person_id.data|string}) }}</td>
+                            {{ billowers.person_id() }}
+                            <td>{{ billowers.person_name(readonly=true) }}</td>
+                            <td style="display: {{ "" if form.advanced else "none" }};">{{ billowers.weight(**{"onchange":"ComputeDue()","personid":billowers.person_id.data|string, "type": "" if form.advanced else "hidden"}) }}</td>
+                            <td>
+                                <output id="due" name="due" personid="{{ billowers.person_id.data|string }}"></output>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
             </div>
-    </div>
+        </div>
     </fieldset>
     <div class="actions">
         {{ form.submit(class="btn btn-primary") }}
