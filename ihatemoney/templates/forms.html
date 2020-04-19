@@ -118,13 +118,14 @@
                 <p><a href="#" id="selectall" onclick="selectCheckboxes(true)">{{ _("Select all") }}</a> | <a href="#"
                                                                                                               id="selectnone"
                                                                                                               onclick="selectCheckboxes(false)">{{ _("Select none") }}</a>
+                      <a href="#" id="toggle_advanced" onclick="ToggleAdvanced()" style="float: right;">{{ _("Advanced") }}</a>
                 </p>
                 <table class="table table-hover">
                     <thead>
                     <tr>
                         <th scope="col"></th>
                         <th scope="col">{{ _("Participant") }}</th>
-                        <th scope="col" style="display: {{ "" if form.advanced else "none" }};">{{ _("Weight") }}</th>
+                        <th id='weight_col' scope="col" style="visibility: {{ "visible" if form.advanced else "hidden" }};">{{ _("Weight") }}</th>
                         <th scope="col">{{ _("Due") }}</th>
                     </tr>
                     </thead>
@@ -134,7 +135,7 @@
                             <td>{{ billowers.included(**{"onchange":"SetWeight("+billowers.person_id.data|string+")","personid":billowers.person_id.data|string}) }}</td>
                             {{ billowers.person_id() }}
                             <td>{{ billowers.person_name(readonly=true) }}</td>
-                            <td style="display: {{ "" if form.advanced else "none" }};">{{ billowers.weight(**{"onchange":"ComputeDue()","personid":billowers.person_id.data|string, "type": "" if form.advanced else "hidden"}) }}</td>
+                            <td id='weight_cell' style="visibility: {{ "visible" if form.advanced else "hidden" }};">{{ billowers.weight(**{"onchange":"ComputeDue()","personid":billowers.person_id.data|string, "style": "visibility: visible" if form.advanced else "visibility: hidden"}) }}</td>
                             <td>
                                 <output id="due" name="due" personid="{{ billowers.person_id.data|string }}"></output>
                             </td>

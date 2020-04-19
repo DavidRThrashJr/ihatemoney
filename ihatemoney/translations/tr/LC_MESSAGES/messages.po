@@ -522,6 +522,9 @@ msgstr ""
 msgid "Balance"
 msgstr ""
 
+msgid "Advanced"
+msgstr ""
+
 #~ msgid "What do you want to download ?"
 #~ msgstr ""
 
