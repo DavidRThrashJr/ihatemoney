@@ -138,9 +138,9 @@
                         <tr>
                             <td>{{ billowers.included(**{"onchange":"SetWeight("+billowers.person_id.data|string+")","personid":billowers.person_id.data|string}) }}</td>
                             {{ billowers.person_id() }}
-                            <td>{{ billowers.person_name(readonly=true) }}</td>
+                            <td>{{ billowers.person_name(readonly=true, size=10) }}</td>
                             <td id='weight_cell'
-                                style="visibility: {{ "visible" if form.advanced else "hidden" }};">{{ billowers.weight(**{"onchange":"ComputeDue()","personid":billowers.person_id.data|string, "style": "visibility: visible" if form.advanced else "visibility: hidden"}) }}</td>
+                                style="visibility: {{ "visible" if form.advanced else "hidden" }};">{{ billowers.weight(**{"onchange":"ComputeDue()","personid":billowers.person_id.data|string, "style": "width: 60px;" + ("visibility: visible" if form.advanced else "visibility: hidden")}) }}</td>
                             <td>
                                 <output id="due" name="due" personid="{{ billowers.person_id.data|string }}"></output>
                             </td>
