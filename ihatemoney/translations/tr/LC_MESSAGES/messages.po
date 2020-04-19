@@ -528,6 +528,9 @@ msgstr ""
 msgid "Simple"
 msgstr ""
 
+msgid "Advanced Weighting Enabled by Default?"
+msgstr ""
+
 #~ msgid "What do you want to download ?"
 #~ msgstr ""
 

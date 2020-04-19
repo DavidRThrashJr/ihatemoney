@@ -130,7 +130,7 @@ class EditProjectForm(FlaskForm):
     name = StringField(_("Project name"), validators=[DataRequired()])
     password = StringField(_("Private code"), validators=[DataRequired()])
     contact_email = StringField(_("Email"), validators=[DataRequired(), Email()])
-    advanced_weighting_enabled = BooleanField(_("Advanced Weighting Enabled"), validators=[])
+    advanced_weighting_enabled = BooleanField(_("Advanced Weighting Enabled by Default?"), validators=[])
 
     def save(self):
         """Create a new project with the information given by this form.
