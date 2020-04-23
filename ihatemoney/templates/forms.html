@@ -1,4 +1,4 @@
-{% macro input(field, multiple=False, class='form-control', inline=False, placeholder='') -%}
+{% macro input(field, multiple=False, class='form-control', inline=False, placeholder='', oninput='') -%}
     <div class="form-group{% if inline %} row{% endif %}">
     {% if field.type != "SubmitField" %}
         {% if inline %}
@@ -11,7 +11,7 @@
         {% if multiple == True %}
             {{ field(multiple=True, class=class, placeholder=placeholder) }}
         {% else %}
-            {{ field(class=class, placeholder=placeholder) | safe }}
+            {{ field(class=class, placeholder=placeholder, oninput=oninput) | safe }}
         {% endif %}
         {% if field.description %}
             <small id="{{field.name}}_description"" class="form-text text-muted">{{ field.description }}</small>
@@ -78,6 +78,7 @@
     {{ input(form.name) }}
     {{ input(form.password) }}
     {{ input(form.contact_email) }}
+    {{ input(form.advanced_weighting_enabled) }}
     <div class="actions">
         <button class="btn btn-primary">{{ _("Edit the project") }}</button>
         <a id="delete-project" style="color:red; margin-left:10px; cursor:pointer; ">{{ _("delete") }}</a>
@@ -95,33 +96,59 @@
 {% endmacro %}
 
 {% macro add_bill(form, edit=False, title=True) %}
-
     <fieldset>
-        {% if title %}<legend>{% if edit %}{{ _("Edit this bill") }} {% else %}{{ _("Add a bill") }} {% endif %}</legend>{% endif %}
-    {% include "display_errors.html" %}
-    {{ form.hidden_tag() }}
-    {{ input(form.date, class="form-control", inline=True) }}
-    {{ input(form.what, inline=True) }}
-    {{ input(form.payer, inline=True, class="form-control custom-select") }}
-    {{ input(form.amount, inline=True) }}
-    {{ input(form.external_link, inline=True) }}
-
-    <div class="form-group row">
-        <label class="col-3" for="payed_for">{{ _("For whom?") }}</label>
-        <div class="controls col-9">
-            <ul id="payed_for" class="inputs-list">
-                <p><a href="#" id="selectall" onclick="selectCheckboxes(true)">{{ _("Select all") }}</a> | <a href="#" id="selectnone" onclick="selectCheckboxes(false)">{{_("Select none")}}</a></p>
-            {% for key, value, checked in form.payed_for.iter_choices() | sort(attribute='1') %}
-                <p class="form-check">
-                   <label for="payed_for-{{key}}" class="form-check-label">
-                      <input name="payed_for" type="checkbox" {% if checked %}checked{% endif %} class="form-check-input" value="{{key}}" id="payed_for-{{key}}"/>
-                      <span>{{value}}</span>
-                    </label>
-                 </p>
-            {% endfor %}
-            </ul>
+        {% if title %}
+            <legend>
+                {% if edit %}{{ _("Edit this bill") }} {% else %}{{ _("Add a bill") }} {% endif %}</legend>{% endif %}
+        {% include "display_errors.html" %}
+        {{ form.hidden_tag() }}
+        {#    CSRF hack due to errors: "Billowers: {'csrf_token': ['The CSRF token is missing.']}"#}
+        {% for billowers in form.billowers %}
+            {{ billowers.hidden_tag() }}
+        {% endfor %}
+        {{ input(form.date, class="form-control", inline=True) }}
+        {{ input(form.what, inline=True) }}
+        {{ input(form.payer, inline=True, class="form-control custom-select") }}
+        {{ input(form.amount, inline=True, oninput="ComputeDue();") }}
+        {{ input(form.external_link, inline=True) }}
+        <div class="form-group row">
+            <label class="col-3" for="payed_for">{{ _("For whom?") }}</label>
+            <div class="controls col-9">
+                <p><a href="#" id="selectall" onclick="selectCheckboxes(true)">{{ _("Select all") }}</a> | <a href="#"
+                                                                                                              id="selectnone"
+                                                                                                              onclick="selectCheckboxes(false)">{{ _("Select none") }}</a>
+                    <a href="#" id="toggle_advanced_adv" onclick="ToggleAdvanced()"
+                        style="float: right; display: {{ "block" if form.advanced else "none" }};">{{ _("Simple") }}</a>
+                    <a href="#" id="toggle_advanced_smpl" onclick="ToggleAdvanced()"
+                       style="float: right; display: {{ "none" if form.advanced else "block" }};">{{ _("Advanced") }}</a>
+                </p>
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th scope="col"></th>
+                        <th scope="col">{{ _("Participant") }}</th>
+                        <th id='weight_col' scope="col"
+                            style="visibility: hidden;">{{ _("Weight") }}</th>
+                        <th scope="col">{{ _("Due") }}</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for billowers in form.billowers | sort(attribute='person_name.data') %}
+                        <tr>
+                            <td>{{ billowers.included(**{"onchange":"SetWeight("+billowers.person_id.data|string+")","personid":billowers.person_id.data|string}) }}</td>
+                            {{ billowers.person_id() }}
+                            <td>{{ billowers.person_name(readonly=true, size=10) }}</td>
+                            <td id='weight_cell'
+                                style="visibility: {{ "visible" if form.advanced else "hidden" }};">{{ billowers.weight(**{"onchange":"ComputeDue()","personid":billowers.person_id.data|string, "style": "width: 60px;" + ("visibility: visible" if form.advanced else "visibility: hidden")}) }}</td>
+                            <td>
+                                <output id="due" name="due" personid="{{ billowers.person_id.data|string }}"></output>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
     </fieldset>
     <div class="actions">
         {{ form.submit(class="btn btn-primary") }}

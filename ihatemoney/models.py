@@ -5,7 +5,7 @@ from flask_sqlalchemy import SQLAlchemy, BaseQuery
 from flask import g, current_app
 
 from debts import settle
-from sqlalchemy import orm
+from sqlalchemy import orm, case
 from sqlalchemy.sql import func
 from itsdangerous import (
     TimedJSONWebSignatureSerializer,
@@ -28,6 +28,9 @@ class Project(db.Model):
     password = db.Column(db.String(128))
     contact_email = db.Column(db.String(128))
     members = db.relationship("Person", backref="project")
+    # each project will be able to decide whether they want to use advanced weighting
+    # meaning that they will be able to specify the weight for each member within each bill
+    advanced_weighting_enabled = db.Column(db.Boolean, default=False)
 
     query_class = ProjectQuery
 
@@ -38,6 +41,7 @@ class Project(db.Model):
             "name": self.name,
             "contact_email": self.contact_email,
             "members": [],
+            "advanced_weighting_enabled": self.advanced_weighting_enabled,
         }
 
         balance = self.balance
@@ -54,7 +58,6 @@ class Project(db.Model):
 
     @property
     def balance(self):
-
         balances, should_pay, should_receive = (defaultdict(int) for time in (1, 2, 3))
 
         # for each person
@@ -65,14 +68,18 @@ class Project(db.Model):
             )
             for bill in bills.all():
                 if person != bill.payer:
-                    share = bill.pay_each() * person.weight
+                    # backwards compatibility with project level weights will not be supported
+                    # if self.advanced_weighting_enabled:
+                    billower = BillOwers.query.get(bill.id, person.id)
+                    share = bill.pay_each(self.advanced_weighting_enabled) * billower.weight
+                    # else:
+                    #     share = bill.pay_each(self.advanced_weighting_enabled) * person.weight
                     should_pay[person] += share
                     should_receive[bill.payer] += share
 
         for person in self.members:
             balance = should_receive[person] - should_pay[person]
             balances[person.id] = balance
-
         return balances
 
     @property
@@ -90,7 +97,10 @@ class Project(db.Model):
                 ),
                 "spent": sum(
                     [
-                        bill.pay_each() * member.weight
+                        bill.pay_each(self.advanced_weighting_enabled) *
+                        (BillOwers.query.get(bill.id, member.id).weight
+                         if self.advanced_weighting_enabled
+                            else member.weight)
                         for bill in self.get_bills().all()
                         if member in bill.owers
                     ]
@@ -321,8 +331,8 @@ class Person(db.Model):
     def has_bills(self):
         """return if the user do have bills or not"""
         bills_as_ower_number = (
-            db.session.query(billowers)
-            .filter(billowers.columns.get("person_id") == self.id)
+            db.session.query(BillOwers)
+            .filter(BillOwers.person_id == self.id)
             .count()
         )
         return bills_as_ower_number != 0 or len(self.bills) != 0
@@ -333,14 +343,35 @@ class Person(db.Model):
     def __repr__(self):
         return "<Person %s for project %s>" % (self.name, self.project.name)
 
+class BillOwers(db.Model):
+    __tablename__ = 'billowers'
+    class BillOwersQuery(BaseQuery):
+        def get(self, bill_id, ower_id):
+            try:
+                return (
+                    db.session.query(BillOwers)
+                    .filter(BillOwers.person_id == ower_id)
+                    .filter(BillOwers.bill_id == bill_id)
+                    .one()
+                )
+            except orm.exc.NoResultFound:
+                return None
 
-# We need to manually define a join table for m2m relations
-billowers = db.Table(
-    "billowers",
-    db.Column("bill_id", db.Integer, db.ForeignKey("bill.id")),
-    db.Column("person_id", db.Integer, db.ForeignKey("person.id")),
-)
+        def delete(self, bill_id, ower_id):
+            billower = self.get(bill_id, ower_id)
+            if billower:
+                db.session.delete(billower)
+            return billower
 
+    query_class = BillOwersQuery
+
+    bill_id = db.Column("bill_id", db.Integer, db.ForeignKey("bill.id"), primary_key=True)
+    person_id = db.Column("person_id", db.Integer, db.ForeignKey("person.id"), primary_key=True)
+    # store weight to customize the amount owed for an individual person relative to others within a single bill
+    weight = db.Column("weight", db.Integer, default=1)
+
+    bill = db.relationship("Bill", backref=orm.backref('bill', cascade='save-update, merge, delete, delete-orphan'))
+    ower = db.relationship(Person, backref="billowers")
 
 class Bill(db.Model):
     class BillQuery(BaseQuery):
@@ -368,7 +399,8 @@ class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     payer_id = db.Column(db.Integer, db.ForeignKey("person.id"))
-    owers = db.relationship(Person, secondary=billowers)
+    billowers = db.relationship(BillOwers, primaryjoin=(BillOwers.bill_id == id), cascade='save-update, merge, delete, delete-orphan', )
+    owers = db.relationship(Person, secondary="billowers")
 
     amount = db.Column(db.Float)
     date = db.Column(db.Date, default=datetime.now)
@@ -391,14 +423,20 @@ class Bill(db.Model):
             "external_link": self.external_link,
         }
 
-    def pay_each(self):
+    def pay_each(self, advanced_weighting=False):
         """Compute what each share has to pay"""
         if self.owers:
-            weights = (
-                db.session.query(func.sum(Person.weight))
-                .join(billowers, Bill)
-                .filter(Bill.id == self.id)
-            ).scalar()
+            if advanced_weighting:
+                weights = (
+                    db.session.query(func.sum(BillOwers.weight))
+                        .filter(BillOwers.bill_id == self.id)
+                ).scalar()
+            else:
+                weights = (
+                    db.session.query(func.sum(Person.weight))
+                    .join(BillOwers, Bill)
+                    .filter(Bill.id == self.id)
+                ).scalar()
             return self.amount / weights
         else:
             return 0

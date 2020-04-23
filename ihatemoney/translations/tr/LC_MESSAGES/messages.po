@@ -108,6 +108,9 @@ msgstr ""
 msgid "Weight"
 msgstr ""
 
+msgid "Default Weight"
+msgstr ""
+
 msgid "Add"
 msgstr ""
 
@@ -520,6 +523,15 @@ msgid "Spent"
 msgstr ""
 
 msgid "Balance"
+msgstr ""
+
+msgid "Advanced"
+msgstr ""
+
+msgid "Simple"
+msgstr ""
+
+msgid "Advanced Weighting Enabled by Default?"
 msgstr ""
 
 #~ msgid "What do you want to download ?"

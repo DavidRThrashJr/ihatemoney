@@ -501,3 +501,14 @@ msgstr ""
 msgid "Balance"
 msgstr ""
 
+msgid "Participant"
+msgstr ""
+
+msgid "Weight"
+msgstr ""
+
+msgid "Due"
+msgstr ""
+
+msgid "At least one participant should be included in the bill"
+msgstr ""

@@ -1,7 +1,7 @@
 from flask_wtf.form import FlaskForm
-from wtforms.fields.core import SelectField, SelectMultipleField
+from wtforms.fields.core import SelectField, SelectMultipleField, BooleanField, IntegerField, FormField, FieldList
 from wtforms.fields.html5 import DateField, DecimalField, URLField
-from wtforms.fields.simple import PasswordField, SubmitField, StringField
+from wtforms.fields.simple import PasswordField, SubmitField, StringField, HiddenField
 from wtforms.validators import (
     Email,
     DataRequired,
@@ -22,9 +22,8 @@ from jinja2 import Markup
 
 import email_validator
 
-from ihatemoney.models import Project, Person
+from ihatemoney.models import Project, Person, Bill, BillOwers
 from ihatemoney.utils import slugify, eval_arithmetic_expression
-
 
 def strip_filter(string):
     try:
@@ -32,24 +31,64 @@ def strip_filter(string):
     except Exception:
         return string
 
-
-def get_billform_for(project, set_default=True, **kwargs):
+def get_billform_form(project, set_default=True, bill_id=None, **kwargs):
     """Return an instance of BillForm configured for a particular project.
 
     :set_default: if set to True, on GET methods (usually when we want to
                   display the default form, it will call set_default on it.
 
     """
-    form = BillForm(**kwargs)
-    active_members = [(m.id, m.name) for m in project.active_members]
 
-    form.payed_for.choices = form.payer.choices = active_members
-    form.payed_for.default = [m.id for m in project.active_members]
-
+    # we're using the billowers object here to fill in the attributes used by the form
+    bill = Bill()
+    is_advanced_form = False
     if set_default and request.method == "GET":
-        form.set_default()
-    return form
+        billowers = []
+        # set the default values for all members in the project
+        for member in project.active_members:
+            billower = BillOwers()
+            billower.included = True
+            billower.person_id = member.id
+            billower.person_name = member.name
+            billower.weight = member.weight
+            if billower.weight != 1:
+                is_advanced_form = True
+            billowers.append(billower)
+        bill.billowers = billowers
+        bill.date = datetime.now()
 
+    # if we're editing the bill a bill_id is passed
+    # we create a new billowers list
+    # to ensure that all members of the project are included in the list
+    # no matter whether they are an ower or not
+
+    if bill_id is not None:
+        # get the existing bill
+        bill_to_edit = Bill.query.get(project, bill_id)
+
+        # loop through the active member
+        for member in project.active_members:
+            # loop through the billowers and check if the member is a billower
+            for owers_to_edit in bill_to_edit.billowers:
+                if owers_to_edit.ower.id == member.id:
+                    # set the included and person_name as they are attributes in the form
+                    # that aren't specified explicitly in the billowers table
+                    if owers_to_edit.weight != 0:
+                        owers_to_edit.included = True
+                    else:
+                        owers_to_edit.included = False
+                    owers_to_edit.person_name = owers_to_edit.ower.name
+                    if owers_to_edit.weight != 1:
+                        is_advanced_form = True
+                    break
+
+        bill = bill_to_edit
+
+    form = BillForm(obj=bill, meta={"csrf": False})
+    active_members = [(m.id, m.name) for m in project.active_members]
+    form.payer.choices = active_members
+    form.advanced = is_advanced_form
+    return form
 
 class CommaDecimalField(DecimalField):
 
@@ -89,6 +128,7 @@ class EditProjectForm(FlaskForm):
     name = StringField(_("Project name"), validators=[DataRequired()])
     password = StringField(_("Private code"), validators=[DataRequired()])
     contact_email = StringField(_("Email"), validators=[DataRequired(), Email()])
+    advanced_weighting_enabled = BooleanField(_("Advanced Weighting Enabled by Default?"), validators=[])
 
     def save(self):
         """Create a new project with the information given by this form.
@@ -100,6 +140,7 @@ class EditProjectForm(FlaskForm):
             id=self.id.data,
             password=generate_password_hash(self.password.data),
             contact_email=self.contact_email.data,
+            advanced_weighting_enabled=self.advanced_weighting_enabled.data,
         )
         return project
 
@@ -108,7 +149,7 @@ class EditProjectForm(FlaskForm):
         project.name = self.name.data
         project.password = generate_password_hash(self.password.data)
         project.contact_email = self.contact_email.data
-
+        project.advanced_weighting_enabled = self.advanced_weighting_enabled.data
         return project
 
 
@@ -165,6 +206,12 @@ class ResetPasswordForm(FlaskForm):
     )
     submit = SubmitField(_("Reset password"))
 
+class BillOwersForm(FlaskForm):
+    weight_validators = [NumberRange(min=0, message="Weights should be positive")]
+    included = BooleanField("Included in the bill", validators=[])
+    person_id = HiddenField("Person Id", validators=[DataRequired()])
+    person_name = StringField("Ower")
+    weight = CommaDecimalField(_("Weight"), default=1, validators=weight_validators)
 
 class BillForm(FlaskForm):
     date = DateField(_("Date"), validators=[DataRequired()], default=datetime.now)
@@ -176,19 +223,51 @@ class BillForm(FlaskForm):
         validators=[Optional()],
         description=_("A link to an external document, related to this bill"),
     )
-    payed_for = SelectMultipleField(
-        _("For whom?"), validators=[DataRequired()], coerce=int
+    billowers = FieldList(
+        FormField(BillOwersForm), min_entries=1
     )
     submit = SubmitField(_("Submit"))
     submit2 = SubmitField(_("Submit and add a new one"))
+    advanced = False
 
-    def save(self, bill, project):
+    def validate_billowers(form, billowers):
+        participants = 0
+        # must have at least one billower
+        for form_billower in billowers:
+            if form_billower.included.data is True:
+                participants += 1
+        if participants >= 1:
+            pass
+        else:
+            raise ValidationError(_("At least one participant should be included in the bill"))
+
+    def save(self, bill):
         bill.payer_id = self.payer.data
         bill.amount = self.amount.data
         bill.what = self.what.data
         bill.external_link = self.external_link.data
         bill.date = self.date.data
-        bill.owers = [Person.query.get(ower, project) for ower in self.payed_for.data]
+        new_billowers = []
+        for form_billower in self.billowers:
+            billower_already_exists = False
+            if bill.owers != []:
+                for old_billower in bill.billowers:
+                    if old_billower.person_id == int(form_billower.person_id.data):
+                        billower_already_exists = True
+                        if form_billower.included.data is True:
+                            # rather than checking if the value is update, we're just assigning it
+                            old_billower.person_id = form_billower.person_id.data
+                            old_billower.bill_id = bill.id
+                            old_billower.weight = form_billower.weight.data.__int__()
+                            new_billowers.append(old_billower)
+            if billower_already_exists is False:
+                if form_billower.included.data is True:
+                    new_billower = BillOwers()
+                    new_billower.person_id = form_billower.person_id.data
+                    new_billower.bill_id = bill.id
+                    new_billower.weight = form_billower.weight.data.__int__()
+                    new_billowers.append(new_billower)
+        bill.billowers = new_billowers
         return bill
 
     def fake_form(self, bill, project):
@@ -197,20 +276,9 @@ class BillForm(FlaskForm):
         bill.what = self.what
         bill.external_link = ""
         bill.date = self.date
-        bill.owers = [Person.query.get(ower, project) for ower in self.payed_for]
+        bill.billowers = [Person.query.get(ower, project) for ower in self.payed_for]
 
         return bill
-
-    def fill(self, bill):
-        self.payer.data = bill.payer_id
-        self.amount.data = bill.amount
-        self.what.data = bill.what
-        self.external_link.data = bill.external_link
-        self.date.data = bill.date
-        self.payed_for.data = [int(ower.id) for ower in bill.owers]
-
-    def set_default(self):
-        self.payed_for.data = self.payed_for.default
 
     def validate_amount(self, field):
         if field.data == 0:
@@ -218,10 +286,10 @@ class BillForm(FlaskForm):
 
 
 class MemberForm(FlaskForm):
+    weight_validators = [NumberRange(min=1, message="Weights should be positive")]
     name = StringField(_("Name"), validators=[DataRequired()], filters=[strip_filter])
 
-    weight_validators = [NumberRange(min=0.1, message=_("Weights should be positive"))]
-    weight = CommaDecimalField(_("Weight"), default=1, validators=weight_validators)
+    weight = CommaDecimalField(_("Default Weight"), default=1, validators=weight_validators)
     submit = SubmitField(_("Add"))
 
     def __init__(self, project, edit=False, *args, **kwargs):
