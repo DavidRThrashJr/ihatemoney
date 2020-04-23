@@ -53,13 +53,10 @@ function ToggleAdvanced() {
   var toggleSimple = document.getElementById("toggle_advanced_smpl");
   var toggleAdvanced = document.getElementById("toggle_advanced_adv");
   var weightCells = document.querySelectorAll('[id=weight_cell]');
-  var weightCol = document.getElementById("weight_col");
   var weights = document.querySelectorAll('[name$=weight]');
 
   toggleAdvanced.style.display = toggleAdvanced.style.display === 'block' ? 'none' : 'block';
   toggleSimple.style.display = toggleAdvanced.style.display === 'block' ? 'none' : 'block';
-
-  weightCol.style.visibility = weightCol.style.visibility === 'hidden' ? 'visible' : 'hidden';
 
   for (var i = 0, weightCell; weightCell = weightCells[i]; i++) {
     weightCell.style.visibility = weightCell.style.visibility === 'hidden' ? 'visible' : 'hidden';

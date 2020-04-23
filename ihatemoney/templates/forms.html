@@ -109,8 +109,7 @@
         {{ input(form.date, class="form-control", inline=True) }}
         {{ input(form.what, inline=True) }}
         {{ input(form.payer, inline=True, class="form-control custom-select") }}
-        {% if form.advanced %}{{ input(form.amount, inline=True, oninput="ComputeDue();") }}{% else %}
-            {{ input(form.amount, inline=True) }}{% endif %}
+        {{ input(form.amount, inline=True, oninput="ComputeDue();") }}
         {{ input(form.external_link, inline=True) }}
         <div class="form-group row">
             <label class="col-3" for="payed_for">{{ _("For whom?") }}</label>
@@ -129,12 +128,12 @@
                         <th scope="col"></th>
                         <th scope="col">{{ _("Participant") }}</th>
                         <th id='weight_col' scope="col"
-                            style="visibility: {{ "visible" if form.advanced else "hidden" }};">{{ _("Weight") }}</th>
+                            style="visibility: hidden;">{{ _("Weight") }}</th>
                         <th scope="col">{{ _("Due") }}</th>
                     </tr>
                     </thead>
                     <tbody>
-                    {% for billowers in form.billowers %}
+                    {% for billowers in form.billowers | sort(attribute='person_name.data') %}
                         <tr>
                             <td>{{ billowers.included(**{"onchange":"SetWeight("+billowers.person_id.data|string+")","personid":billowers.person_id.data|string}) }}</td>
                             {{ billowers.person_id() }}
@@ -176,9 +175,7 @@
     {% include "display_errors.html" %}
     {{ form.hidden_tag() }}
     {{ input(form.name) }}
-    {% if g.project.advanced_weighting_enabled == False %}
     {{ input(form.weight) }}
-    {% endif %}
     </fieldset>
     <div class="actions">
         {{ form.submit(class="btn btn-primary") }}

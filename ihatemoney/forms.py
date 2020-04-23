@@ -41,6 +41,7 @@ def get_billform_form(project, set_default=True, bill_id=None, **kwargs):
 
     # we're using the billowers object here to fill in the attributes used by the form
     bill = Bill()
+    is_advanced_form = False
     if set_default and request.method == "GET":
         billowers = []
         # set the default values for all members in the project
@@ -49,7 +50,9 @@ def get_billform_form(project, set_default=True, bill_id=None, **kwargs):
             billower.included = True
             billower.person_id = member.id
             billower.person_name = member.name
-            billower.weight = 1
+            billower.weight = member.weight
+            if billower.weight != 1:
+                is_advanced_form = True
             billowers.append(billower)
         bill.billowers = billowers
         bill.date = datetime.now()
@@ -65,31 +68,26 @@ def get_billform_form(project, set_default=True, bill_id=None, **kwargs):
 
         # loop through the active member
         for member in project.active_members:
-            member_in_billowers = False
             # loop through the billowers and check if the member is a billower
             for owers_to_edit in bill_to_edit.billowers:
                 if owers_to_edit.ower.id == member.id:
-                    member_in_billowers = True
                     # set the included and person_name as they are attributes in the form
                     # that aren't specified explicitly in the billowers table
-                    owers_to_edit.included = True
+                    if owers_to_edit.weight != 0:
+                        owers_to_edit.included = True
+                    else:
+                        owers_to_edit.included = False
                     owers_to_edit.person_name = owers_to_edit.ower.name
+                    if owers_to_edit.weight != 1:
+                        is_advanced_form = True
                     break
-            # if the member is not a billower we need to add them
-            # the form should render all members with a checkbox if they are not included in the bill
-            if member_in_billowers is False:
-                non_billower = BillOwers()
-                non_billower.included = False
-                non_billower.person_id = member.id
-                non_billower.person_name = member.name
-                non_billower.weight = 0
-                bill_to_edit.billowers.append(non_billower)
 
         bill = bill_to_edit
 
     form = BillForm(obj=bill, meta={"csrf": False})
     active_members = [(m.id, m.name) for m in project.active_members]
     form.payer.choices = active_members
+    form.advanced = is_advanced_form
     return form
 
 class CommaDecimalField(DecimalField):
@@ -291,7 +289,7 @@ class MemberForm(FlaskForm):
     weight_validators = [NumberRange(min=1, message="Weights should be positive")]
     name = StringField(_("Name"), validators=[DataRequired()], filters=[strip_filter])
 
-    weight = CommaDecimalField(_("Weight"), default=1, validators=weight_validators)
+    weight = CommaDecimalField(_("Default Weight"), default=1, validators=weight_validators)
     submit = SubmitField(_("Add"))
 
     def __init__(self, project, edit=False, *args, **kwargs):

@@ -68,11 +68,12 @@ class Project(db.Model):
             )
             for bill in bills.all():
                 if person != bill.payer:
-                    if self.advanced_weighting_enabled:
-                        billower = BillOwers.query.get(bill.id, person.id)
-                        share = bill.pay_each(self.advanced_weighting_enabled) * billower.weight
-                    else:
-                        share = bill.pay_each(self.advanced_weighting_enabled) * person.weight
+                    # backwards compatibility with project level weights will not be supported
+                    # if self.advanced_weighting_enabled:
+                    billower = BillOwers.query.get(bill.id, person.id)
+                    share = bill.pay_each(self.advanced_weighting_enabled) * billower.weight
+                    # else:
+                    #     share = bill.pay_each(self.advanced_weighting_enabled) * person.weight
                     should_pay[person] += share
                     should_receive[bill.payer] += share
 

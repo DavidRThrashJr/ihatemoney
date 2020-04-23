@@ -46,7 +46,7 @@
         {% for member in g.project.members | sort(attribute='name') if member.activated or balance[member.id]|round(2) != 0 %}
         <tr id="bal-member-{{ member.id }}" action={% if member.activated %}delete{% else %}reactivate{% endif %}>
             <td class="balance-name">{{ member.name }}
-            {% if g.project.advanced_weighting_enabled == False %}
+            {% if member.weight !=1 %}
                 <span class="light{% if not g.project.uses_weights %} extra-info{% endif %}">(x{{ member.weight|minimal_round(1) }})</span>
             {% endif %}
             </td>
